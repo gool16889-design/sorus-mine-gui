@@ -5,17 +5,16 @@ local TS = game:GetService("TweenService")
 local RS = game:GetService("RunService")
 local Lighting = game:GetService("Lighting")
 
-if CoreGui:FindFirstChild("MC_Source_Lib") then CoreGui.MC_Source_Lib:Destroy() end
-
-local Blur = Instance.new("BlurEffect", Lighting)
-Blur.Size = 0
-Blur.Enabled = false
+if CoreGui:FindFirstChild("MC_Fixed_Lib") then CoreGui.MC_Fixed_Lib:Destroy() end
 
 function Library:Init()
     local ScreenGui = Instance.new("ScreenGui", CoreGui)
-    ScreenGui.Name = "MC_Source_Lib"
+    ScreenGui.Name = "MC_Fixed_Lib"
     ScreenGui.ResetOnSpawn = false
     ScreenGui.Enabled = false
+
+    local Blur = Instance.new("BlurEffect", Lighting)
+    Blur.Size = 0; Blur.Enabled = false
 
     local THEME = {
         Header = Color3.fromRGB(25, 25, 25),
@@ -41,44 +40,36 @@ function Library:Init()
         Frame.BorderSizePixel = 0
         Frame.Active = true
 
-        local function makeDraggable(topbarobject, object)
+        local function makeDraggable(topbar, obj)
             local dragging, dragInput, dragStart, startPos
-            topbarobject.InputBegan:Connect(function(input)
+            topbar.InputBegan:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    dragging = true
-                    dragStart = input.Position
-                    startPos = object.Position
+                    dragging = true; dragStart = input.Position; startPos = obj.Position
                     input.Changed:Connect(function()
                         if input.UserInputState == Enum.UserInputState.End then dragging = false end
                     end)
                 end
             end)
-            topbarobject.InputChanged:Connect(function(input)
+            topbar.InputChanged:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end
             end)
             UIS.InputChanged:Connect(function(input)
                 if input == dragInput and dragging then
                     local delta = input.Position - dragStart
-                    object.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+                    obj.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
                 end
             end)
         end
         makeDraggable(Frame, Frame)
 
-        local Title = Instance.new("TextLabel", Frame)
-        Title.Size = UDim2.new(1, 0, 1, 0)
-        Title.Text = name:upper()
-        Title.Font = Enum.Font.SourceSansBold
-        Title.TextColor3 = THEME.Text
-        Title.TextSize = 16
-        Title.BackgroundTransparency = 1
+        Instance.new("TextLabel", Frame).Name = "Title"
+        Frame.Title.Size = UDim2.new(1, 0, 1, 0); Frame.Title.Text = name:upper()
+        Frame.Title.Font = 3; Frame.Title.TextColor3 = THEME.Text; Frame.Title.BackgroundTransparency = 1
 
         local Container = Instance.new("Frame", Frame)
-        Container.Position = UDim2.new(0, 0, 1, 0)
-        Container.BackgroundColor3 = THEME.Main
-        Container.BorderSizePixel = 0
+        Container.Name = "Container"; Container.Position = UDim2.new(0, 0, 1, 0)
+        Container.BackgroundColor3 = THEME.Main; Container.BorderSizePixel = 0
         local Layout = Instance.new("UIListLayout", Container)
-        
         Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
             Container.Size = UDim2.new(1, 0, 0, Layout.AbsoluteContentSize.Y)
         end)
@@ -87,100 +78,69 @@ function Library:Init()
 
         function Category:AddModule(modName, callback)
             local ModFrame = Instance.new("Frame", Container)
-            ModFrame.Size = UDim2.new(1, 0, 0, 32)
-            ModFrame.BackgroundTransparency = 1
+            ModFrame.Size = UDim2.new(1, 0, 0, 32); ModFrame.BackgroundTransparency = 1
 
             local Button = Instance.new("TextButton", ModFrame)
-            Button.Size = UDim2.new(1, 0, 1, 0)
-            Button.BackgroundColor3 = THEME.Main
-            Button.BorderSizePixel = 0
-            Button.Text = "  " .. modName
-            Button.Font = Enum.Font.SourceSans
-            Button.TextColor3 = THEME.Text
-            Button.TextSize = 15
-            Button.TextXAlignment = 0
+            Button.Size = UDim2.new(1, 0, 1, 0); Button.BackgroundColor3 = THEME.Main; Button.BorderSizePixel = 0
+            Button.Text = "  " .. modName; Button.Font = 3; Button.TextColor3 = THEME.Text; Button.TextSize = 15; Button.TextXAlignment = 0
 
-            local SettingsFrame = Instance.new("Frame", Container)
-            SettingsFrame.Size = UDim2.new(1, 0, 0, 0)
-            SettingsFrame.BackgroundColor3 = THEME.Settings
-            SettingsFrame.ClipsDescendants = true
-            SettingsFrame.BorderSizePixel = 0
-            Instance.new("UIListLayout", SettingsFrame)
+            local Settings = Instance.new("Frame", Container)
+            Settings.Name = "Settings"; Settings.Size = UDim2.new(1, 0, 0, 0)
+            Settings.BackgroundColor3 = THEME.Settings; Settings.ClipsDescendants = true; Settings.BorderSizePixel = 0
+            Instance.new("UIListLayout", Settings)
 
             local enabled, open = false, false
-
             Button.MouseButton1Click:Connect(function()
                 enabled = not enabled
                 Button.TextColor3 = enabled and THEME.Accent or THEME.Text
                 if callback then task.spawn(callback, enabled) end
             end)
-
             Button.MouseButton2Click:Connect(function()
                 open = not open
-                TS:Create(SettingsFrame, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, open and SettingsFrame.UIListLayout.AbsoluteContentSize.Y or 0)}):Play()
+                TS:Create(Settings, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, open and Settings.UIListLayout.AbsoluteContentSize.Y or 0)}):Play()
             end)
 
             local Module = {}
 
-            function Module:AddSlider(setName, min, max, default, sliderCallback)
-                local SFrame = Instance.new("Frame", SettingsFrame)
-                SFrame.Size = UDim2.new(1, 0, 0, 45)
-                SFrame.BackgroundTransparency = 1
-
-                local SLabel = Instance.new("TextLabel", SFrame)
-                SLabel.Size = UDim2.new(1, 0, 0, 20)
-                SLabel.Position = UDim2.new(0, 10, 0, 5)
-                SLabel.Text = setName .. ": " .. default
-                SLabel.Font = Enum.Font.SourceSans; SLabel.TextColor3 = Color3.new(0.8,0.8,0.8); SLabel.TextSize = 13; SLabel.BackgroundTransparency = 1; SLabel.TextXAlignment = 0
-
-                local SliderBack = Instance.new("Frame", SFrame)
-                SliderBack.Size = UDim2.new(0.8, 0, 0, 4); SliderBack.Position = UDim2.new(0.1, 0, 0.7, 0); SliderBack.BackgroundColor3 = Color3.fromRGB(60, 60, 60); SliderBack.BorderSizePixel = 0
-
-                local SliderFill = Instance.new("Frame", SliderBack)
-                SliderFill.Size = UDim2.new((default - min) / (max - min), 0, 1, 0); SliderFill.BackgroundColor3 = THEME.Accent; SliderFill.BorderSizePixel = 0
-
+            function Module:AddSlider(txt, min, max, def, scb)
+                local SFrame = Instance.new("Frame", Settings)
+                SFrame.Size = UDim2.new(1, 0, 0, 45); SFrame.BackgroundTransparency = 1
+                local Lbl = Instance.new("TextLabel", SFrame)
+                Lbl.Size = UDim2.new(1, 0, 0, 20); Lbl.Position = UDim2.new(0, 10, 0, 5); Lbl.Text = txt .. ": " .. def
+                Lbl.Font = 3; Lbl.TextColor3 = Color3.new(0.8,0.8,0.8); Lbl.TextSize = 13; Lbl.BackgroundTransparency = 1; Lbl.TextXAlignment = 0
+                local B = Instance.new("Frame", SFrame)
+                B.Size = UDim2.new(0.8, 0, 0, 4); B.Position = UDim2.new(0.1, 0, 0.7, 0); B.BackgroundColor3 = Color3.fromRGB(60, 60, 60); B.BorderSizePixel = 0
+                local Fill = Instance.new("Frame", B)
+                Fill.Size = UDim2.new((def - min) / (max - min), 0, 1, 0); Fill.BackgroundColor3 = THEME.Accent; Fill.BorderSizePixel = 0
                 local dragging = false
                 local function update()
-                    local pos = math.clamp((UIS:GetMouseLocation().X - SliderBack.AbsolutePosition.X) / SliderBack.AbsoluteSize.X, 0, 1)
-                    SliderFill.Size = UDim2.new(pos, 0, 1, 0)
-                    local val = math.floor(min + (max - min) * pos)
-                    SLabel.Text = setName .. ": " .. val
-                    if sliderCallback then sliderCallback(val) end
+                    local pos = math.clamp((UIS:GetMouseLocation().X - B.AbsolutePosition.X) / B.AbsoluteSize.X, 0, 1)
+                    Fill.Size = UDim2.new(pos, 0, 1, 0); local val = math.floor(min + (max - min) * pos)
+                    Lbl.Text = txt .. ": " .. val; if scb then scb(val) end
                 end
-
-                SliderBack.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true end end)
-                UIS.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
+                B.InputBegan:Connect(function(i) if i.UserInputType.Name == "MouseButton1" then dragging = true end end)
+                UIS.InputEnded:Connect(function(i) if i.UserInputType.Name == "MouseButton1" then dragging = false end end)
                 RS.RenderStepped:Connect(function() if dragging then update() end end)
-                
                 return Module
             end
 
-            function Module:AddColorInput(setName, defaultColor, colorCallback)
-                local CFrame = Instance.new("Frame", SettingsFrame)
-                CFrame.Size = UDim2.new(1, 0, 0, 45)
-                CFrame.BackgroundTransparency = 1
-
-                local CLabel = Instance.new("TextLabel", CFrame)
-                CLabel.Size = UDim2.new(0.4, 0, 0, 45); CLabel.Position = UDim2.new(0, 10, 0, 0); CLabel.Text = setName; CLabel.Font = Enum.Font.SourceSans; CLabel.TextColor3 = Color3.new(0.8,0.8,0.8); CLabel.TextSize = 13; CLabel.BackgroundTransparency = 1; CLabel.TextXAlignment = 0
-
-                local Input = Instance.new("TextBox", CFrame)
-                Input.Size = UDim2.new(0.5, 0, 0, 25); Input.Position = UDim2.new(0.45, 0, 0.2, 0); Input.BackgroundColor3 = Color3.fromRGB(50,50,50); Input.BorderSizePixel = 0; Input.TextColor3 = Color3.new(1,1,1); Input.Text = defaultColor.R*255 .. "," .. defaultColor.G*255 .. "," .. defaultColor.B*255; Input.Font = Enum.Font.SourceSans; Input.TextSize = 12
-
-                Input.FocusLost:Connect(function()
-                    local r, g, b = Input.Text:match("(%d+),%s*(%d+),%s*(%d+)")
-                    if r and g and b then
-                        local newColor = Color3.fromRGB(tonumber(r), tonumber(g), tonumber(b))
-                        if colorCallback then colorCallback(newColor) end
-                    end
+            function Module:AddColorInput(txt, def, ccb)
+                local CF = Instance.new("Frame", Settings)
+                CF.Size = UDim2.new(1, 0, 0, 45); CF.BackgroundTransparency = 1
+                local Lbl = Instance.new("TextLabel", CF)
+                Lbl.Size = UDim2.new(0.4, 0, 0, 45); Lbl.Position = UDim2.new(0, 10, 0, 0); Lbl.Text = txt; Lbl.Font = 3; Lbl.TextColor3 = Color3.new(0.8,0.8,0.8); Lbl.TextSize = 13; Lbl.BackgroundTransparency = 1; Lbl.TextXAlignment = 0
+                local Box = Instance.new("TextBox", CF)
+                Box.Size = UDim2.new(0.5, 0, 0, 25); Box.Position = UDim2.new(0.45, 0, 0.2, 0); Box.BackgroundColor3 = Color3.fromRGB(50,50,50); Box.BorderSizePixel = 0; Box.TextColor3 = Color3.new(1,1,1); Box.Text = math.floor(def.R*255)..","..math.floor(def.G*255)..","..math.floor(def.B*255)
+                Box.FocusLost:Connect(function()
+                    local r, g, b = Box.Text:match("(%d+),%s*(%d+),%s*(%d+)")
+                    if r and g and b then if ccb then ccb(Color3.fromRGB(r,g,b)) end end
                 end)
                 return Module
             end
-
             return Module
         end
         return Category
     end
-    return self
+    return Library
 end
-
 return Library
