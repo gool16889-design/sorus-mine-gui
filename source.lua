@@ -1,23 +1,26 @@
+-- [[ СЕРВИСЫ ]]
+local UIS = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+local TS = game:GetService("TweenService")
+local RS = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+
+-- [[ УДАЛЕНИЕ СТАРОЙ КОПИИ ]]
+if CoreGui:FindFirstChild("MC_Library_Source") then CoreGui.MC_Library_Source:Destroy() end
+
+-- [[ НАСТРОЙКИ РАЗМЫТИЯ ]]
+local Blur = Instance.new("BlurEffect", Lighting)
+Blur.Size = 0
+Blur.Enabled = false
+
+-- [[ ОСНОВНАЯ БИБЛИОТЕКА ]]
 local Library = {}
 
 function Library:Init()
-    local CoreGui = game:GetService("CoreGui")
-    local UIS = game:GetService("UserInputService")
-    local Lighting = game:GetService("Lighting")
-    local TweenService = game:GetService("TweenService")
-    local RunService = game:GetService("RunService")
-
-    if CoreGui:FindFirstChild("MC_LIB") then CoreGui.MC_LIB:Destroy() end
-
-    local Blur = Instance.new("BlurEffect", Lighting)
-    Blur.Size = 0
-    Blur.Enabled = false
-
-    local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "MC_LIB"
+    local ScreenGui = Instance.new("ScreenGui", CoreGui)
+    ScreenGui.Name = "MC_Library_Source"
     ScreenGui.ResetOnSpawn = false
     ScreenGui.Enabled = false
-    pcall(function() ScreenGui.Parent = CoreGui end)
 
     local THEME = {
         Header = Color3.fromRGB(25, 25, 25),
@@ -27,11 +30,12 @@ function Library:Init()
         Text = Color3.fromRGB(255, 255, 255)
     }
 
+    -- Открытие на INSERT
     UIS.InputBegan:Connect(function(input, gpe)
         if not gpe and input.KeyCode == Enum.KeyCode.Insert then
             ScreenGui.Enabled = not ScreenGui.Enabled
             Blur.Enabled = ScreenGui.Enabled
-            TweenService:Create(Blur, TweenInfo.new(0.3), {Size = ScreenGui.Enabled and 15 or 0}):Play()
+            TS:Create(Blur, TweenInfo.new(0.3), {Size = ScreenGui.Enabled and 15 or 0}):Play()
         end
     end)
 
@@ -44,12 +48,13 @@ function Library:Init()
         Frame.Active = true
         Frame.Draggable = true
 
-        Instance.new("TextLabel", Frame).Size = UDim2.new(1, 0, 1, 0)
-        Frame.TextLabel.Text = name:upper()
-        Frame.TextLabel.Font = Enum.Font.SourceSansBold
-        Frame.TextLabel.TextColor3 = THEME.Text
-        Frame.TextLabel.TextSize = 16
-        Frame.TextLabel.BackgroundTransparency = 1
+        local Title = Instance.new("TextLabel", Frame)
+        Title.Size = UDim2.new(1, 0, 1, 0)
+        Title.Text = name:upper()
+        Title.Font = Enum.Font.SourceSansBold
+        Title.TextColor3 = THEME.Text
+        Title.TextSize = 16
+        Title.BackgroundTransparency = 1
 
         local Container = Instance.new("Frame", Frame)
         Container.Position = UDim2.new(0, 0, 1, 0)
@@ -86,15 +91,17 @@ function Library:Init()
             Instance.new("UIListLayout", SettingsFrame)
 
             local enabled, open = false, false
+
             Button.MouseButton1Click:Connect(function()
                 enabled = not enabled
                 Button.TextColor3 = enabled and THEME.Accent or THEME.Text
-                if callback then callback(enabled) end
+                if callback then task.spawn(callback, enabled) end
             end)
 
             Button.MouseButton2Click:Connect(function()
                 open = not open
-                TweenService:Create(SettingsFrame, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, open and SettingsFrame.UIListLayout.AbsoluteContentSize.Y or 0)}):Play()
+                local target = open and SettingsFrame.UIListLayout.AbsoluteContentSize.Y or 0
+                TS:Create(SettingsFrame, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, target)}):Play()
             end)
 
             local Module = {}
@@ -111,7 +118,7 @@ function Library:Init()
                 SLabel.Font = Enum.Font.SourceSans
                 SLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
                 SLabel.TextSize = 13
-                SLabel.TextXAlignment = Enum.TextXAlignment.Left
+                SLabel.TextXAlignment = 0
                 SLabel.BackgroundTransparency = 1
 
                 local SliderBack = Instance.new("Frame", SFrame)
@@ -134,27 +141,52 @@ function Library:Init()
                     if sliderCallback then sliderCallback(val) end
                 end
 
-                SliderBack.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true end end)
-                UIS.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
-                RunService.RenderStepped:Connect(function() if dragging then update() end end)
+                SliderBack.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true end end)
+                UIS.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
+                RS.RenderStepped:Connect(function() if dragging then update() end end)
+                
+                return Module
             end
 
             return Module
         end
         return Category
     end
+    return self
 end
 
--- ПРИМЕР ИСПОЛЬЗОВАНИЯ:
-Library:Init()
+-- ==========================================================
+-- [ ПРИМЕР: КАК ДОБАВЛЯТЬ ФУНКЦИИ И ОКОШКИ ]
+-- ==========================================================
 
-local Combat = Library:CreateCategory("Combat", UDim2.new(0, 50, 0, 50))
-local Killaura = Combat:AddModule("KillAura", function(state)
-    print("Aura is:", state)
-end)
-Killaura:AddSlider("Range", 1, 15, 5, function(val)
-    print("New Range:", val)
+local Main = Library:Init()
+
+-- 1. Создаем Окошко (Категорию)
+local Movement = Main:CreateCategory("Movement", UDim2.new(0, 50, 0, 50))
+local Combat = Main:CreateCategory("Combat", UDim2.new(0, 260, 0, 50))
+
+-- 2. Добавляем функции в Movement
+local WalkSpeedValue = 50
+Movement:AddModule("Speed Hack", function(state)
+    local Hum = game.Players.LocalPlayer.Character.Humanoid
+    Hum.WalkSpeed = state and WalkSpeedValue or 16
+end):AddSlider("Speed Amount", 16, 250, 50, function(v)
+    WalkSpeedValue = v
 end)
 
-local Movement = Library:CreateCategory("Movement", UDim2.new(0, 260, 0, 50))
-Movement:AddModule("Fly", function(s) print("Fly:", s) end)
+Movement:AddModule("Fly Mode", function(state)
+    print("Fly is now:", state)
+end)
+
+-- 3. Добавляем функции в Combat
+Combat:AddModule("Kill Aura", function(state)
+    print("Aura status:", state)
+end):AddSlider("Aura Range", 1, 15, 5, function(v)
+    print("New Range:", v)
+end)
+
+Combat:AddModule("Auto Clicker", function(state)
+    print("Clicking:", state)
+end)
+
+return Library
